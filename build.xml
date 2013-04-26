@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+
+	<project name="liblinear" basedir="." default="liblinear">
+	    <target name="init">
+	        <property name="srcDir" value="src/" />
+	        <property name="libDir" value="lib/" />
+	        <property name="buildDir" value="build/" />
+	        <property name="buildDirClasses" value="build/classes" />
+	        <property name="jarDir" value="jar/" />
+	    </target>
+
+	    <target name="compile" depends="init">
+	        <mkdir dir="${buildDir}" />
+	        <mkdir dir="${buildDirClasses}" />
+
+	        <javac srcdir="${srcDir}"
+	               destdir="${buildDirClasses}"
+	               debug="true"
+	               optimize="false"
+	               deprecation="off"
+	               failonerror="true">
+	            <classpath>
+	                <fileset dir="${libDir}" />
+	            </classpath>
+	            <compilerarg value="-Xlint:unchecked"/>
+	        </javac>
+	    </target>
+
+	    <target name="liblinear" depends="compile">
+	        <mkdir dir="${jarDir}" />
+
+	        <jar jarfile="${jarDir}/liblinear.jar"
+	             compress="true"
+	             basedir="${buildDirClasses}"
+	             includes="de/bwaldvogel/liblinear/**">
+	        	<zipfileset src="${libDir}/fest-assert-1.4.jar"/>
+				<zipfileset src="${libDir}/fest-util-1.1.6.jar"/>
+				<zipfileset src="${libDir}/javassist-3.14.0-GA.jar"/>
+				<zipfileset src="${libDir}/junit-4.8.1.jar"/>
+				<zipfileset src="${libDir}/mockito-all-1.8.5.jar"/>
+				<zipfileset src="${libDir}/objenesis-1.2.jar"/>
+				<zipfileset src="${libDir}/powermock-api-mockito-1.4.8.jar"/>
+	        	<zipfileset src="${libDir}/powermock-api-support-1.4.8.jar"/>
+	        	<zipfileset src="${libDir}/powermock-core-1.4.8.jar"/>
+	        	<zipfileset src="${libDir}/powermock-module-junit4-1.4.8.jar"/>
+	        	<zipfileset src="${libDir}/powermock-module-junit4-common-1.4.8.jar"/>
+	        	<zipfileset src="${libDir}/powermock-reflect-1.4.8.jar"/>
+	            <manifest>
+	                <attribute name="Built-By" value="${user.name}" />
+	                <attribute name="Build-Timestamp" value="${build.time}" />
+	                <attribute name="Build-OS" value="${os.name}" />
+	                <attribute name="Build-OS-Version" value="${os.version}" />
+	                <attribute name="Build-OS-Host" value="${COMPUTERNAME}" />
+	                <attribute name="Title" value="${ant.project.name}" />
+	                <attribute name="Vendor" value="Taobao, Inc." />
+	            </manifest>
+	        </jar>
+	    </target>
+	</project>
