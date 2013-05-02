@@ -12,9 +12,11 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.StringTokenizer;
 
+import org.apache.mahout.classifier.evaluation.Auc;
+
 
 public class Train1 {
-
+	private double auc ;
     public static void main(String[] args) throws IOException, InvalidInputDataException {
         new Train1().run(args);
     }
@@ -26,7 +28,30 @@ public class Train1 {
     private int       nr_fold;
     private Parameter param            = null;
     private Problem   prob             = null;
+    
+    private double do_cross_validation_AUC() {
 
+        double[] target = new double[prob.l];
+
+        long start, stop;
+        start = System.currentTimeMillis();
+        Linear.crossValidationWithProbabilistic(prob, param, nr_fold,target);
+        stop = System.currentTimeMillis();
+        
+      //AUC
+        Auc x1 = new Auc();
+        for (int i  = 0; i  < prob.l; i ++){
+        	 double score = target[i];
+        	 int label = (int) prob.y[i];
+        	 if (label==-1) {
+				label=0;
+			 }
+        	 x1.add(label, score);
+        }
+        return x1.auc();
+        
+    }
+    
     private void do_cross_validation() {
 
         double total_error = 0;
@@ -173,17 +198,17 @@ public class Train1 {
 
         // determine filenames
 
-//        if (i >= argv.length) exit_with_help();
+        if (i >= argv.length) exit_with_help();
 
-//        inputFilename = argv[i];
-//
-//        if (i < argv.length - 1)
-//            modelFilename = argv[i + 1];
-//        else {
-//            int p = argv[i].lastIndexOf('/');
-//            ++p; // whew...
-//            modelFilename = argv[i].substring(p) + ".model";
-//        }
+        inputFilename = argv[i];
+
+        if (i < argv.length - 1)
+            modelFilename = argv[i + 1];
+        else {
+            int p = argv[i].lastIndexOf('/');
+            ++p; // whew...
+            modelFilename = argv[i].substring(p) + ".model";
+        }
 
         if (param.eps == Double.POSITIVE_INFINITY) {
             switch (param.solverType) {
@@ -422,7 +447,7 @@ public class Train1 {
         parse_command_line(args);
         readProblem(inputFilename);
         if (cross_validation)
-            do_cross_validation();
+        	do_cross_validation();
         else {
             Model model = Linear.train(prob, param);
             Linear.saveModel(new File(modelFilename), model);
@@ -433,5 +458,59 @@ public class Train1 {
         readProblem1(input);
         return Linear.train(prob, param);
     }
+    public Model runAUC(String[] args,String[] input) throws IOException, InvalidInputDataException {
+    	readProblem1(input);
+
+    	args = learnBestC(args);
+    	
+    	parse_command_line(args);
+    	
+        return  Linear.train(prob, param);
+    }
+    /*
+     * 计算AUC 选择最优的C参数
+     */
+    public String[] learnBestC(String[] args) throws IOException, InvalidInputDataException {
+       
+        //readProblem(inputFilename);
+        //计算交叉预测的AUC
+        double j = 0;
+        double auc = 0;
+        double temp = 0;
+        for (int i = 0; i < Integer.MAX_VALUE; i++) {
+        	j = Math.pow(2, i);
+        	args = ("-s 7 -v 4 -c " + j +" "+inputFilename).split(" ");
+        	parse_command_line(args);
+        	temp = do_cross_validation_AUC();
+        	//System.out.println("--------------------------C = "+j + "  Auc = "+temp+"--------------------------");
+        	if (auc != 0 &&  (temp-auc)/auc < 0.01 ) {
+        		if (temp < auc) {
+        			args = ("-s 7 -v 4 -c " + (j/2) +" "+inputFilename).split(" ");
+            		//parse_command_line(args);
+            		//System.out.println("--------------------------"+"Best_C = "+ j/2 + ", Best_AUC = "+auc+"--------------------------");
+				}else {
+					args = ("-s 7 -v 4 -c " + j +" "+inputFilename).split(" ");
+            		//parse_command_line(args);
+            		//System.out.println("--------------------------"+"Best_C = "+ j + ", Best_AUC = "+temp+"--------------------------");
+				}
+        		
+				break;
+			}
+        	
+			auc = temp;
+			setAuc(auc);
+		}
+        
+       
+        return args;
+    }
+
+	public double getAuc() {
+		return auc;
+	}
+
+	public void setAuc(double auc) {
+		this.auc = auc;
+	}
 
 }
