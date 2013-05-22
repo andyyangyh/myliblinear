@@ -1,9 +1,5 @@
 package de.bwaldvogel.liblinear;
 
-/**
- * 
- *
- */
 public class FeatureNode implements Feature {
 
     public final int index;

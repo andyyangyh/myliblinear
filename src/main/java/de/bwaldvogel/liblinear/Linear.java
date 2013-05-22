@@ -19,6 +19,10 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.regex.Pattern;
 
+import org.apache.mahout.classifier.evaluation.Auc;
+
+import com.sun.xml.internal.ws.org.objectweb.asm.Label;
+
 
 /**
  * <h2>Java port of <a href="http://www.csie.ntu.edu.tw/~cjlin/liblinear/">liblinear</a></h2>
@@ -41,7 +45,60 @@ public class Linear {
 
     private static final long  DEFAULT_RANDOM_SEED = 0L;
     static Random              random              = new Random(DEFAULT_RANDOM_SEED);
+    /**
+     * @param target predicted classes
+     */
+    public static void crossValidationWithProbabilistic(Problem prob, Parameter param, int nr_fold, double[] target) {
+        int i;
+        //double[] result = new double[nr_fold];
+        int[] fold_start = new int[nr_fold + 1];
+        int l = prob.l;
+        int[] perm = new int[l];
+        
+        for (i = 0; i < l; i++)
+            perm[i] = i;
+//        for (i = 0; i < l; i++) {
+//            int j = i + random.nextInt(l - i);
+//            swap(perm, i, j);
+//        }
+        for (i = 0; i <= nr_fold; i++)
+            fold_start[i] = i * l / nr_fold;
 
+        for (i = 0; i < nr_fold; i++) {
+            int begin = fold_start[i];
+            int end = fold_start[i + 1];
+            double[] ta = new double[prob.l];
+            int j, k;
+            Problem subprob = new Problem();
+
+            subprob.bias = prob.bias;
+            subprob.n = prob.n;
+            subprob.l = l - (end - begin);
+            subprob.x = new Feature[subprob.l][];
+            subprob.y = new double[subprob.l];
+
+            k = 0;
+            for (j = 0; j < begin; j++) {
+                subprob.x[k] = prob.x[perm[j]];
+                subprob.y[k] = prob.y[perm[j]];
+                ++k;
+            }
+            for (j = end; j < l; j++) {
+                subprob.x[k] = prob.x[perm[j]];
+                subprob.y[k] = prob.y[perm[j]];
+                ++k;
+            }
+            Model submodel = train(subprob, param);
+            double[] temp ;
+            for (j = begin; j < end; j++){
+            	  temp = new double[submodel.nr_class];
+            	  predictProbability(submodel, prob.x[perm[j]],temp );
+            	  target[perm[j]]=temp[0];
+            }
+                     
+        }
+        
+    }
     /**
      * @param target predicted classes
      */
@@ -359,15 +416,7 @@ public class Linear {
         return label;
     }
 
-    /**
-     * 模型预测部分，根据训练好的模型对样本进行预测。 
-     * @param model 已训练好的模型
-     * @param x 样本的向量
-     * @param dec_values 每个模型预测分值 
-     * @return
-     */
     public static double predictValues(Model model, Feature[] x, double[] dec_values) {
-    	//变量的初始化  
         int n;
         if (model.bias >= 0)
             n = model.nr_feature + 1;
@@ -385,7 +434,6 @@ public class Linear {
         for (int i = 0; i < nr_w; i++)
             dec_values[i] = 0;
 
-        //计算每个模型预测分值  
         for (Feature lx : x) {
             int idx = lx.getIndex();
             // the dimension of testing data may exceed that of training
@@ -396,8 +444,6 @@ public class Linear {
             }
         }
 
-        //根据预测的分值来计算所属的标签，和Libsvm所不同的是：  
-        //这里采用的方式是比较那个模型预测分值大。  
         if (model.nr_class == 2) {
             if (model.solverType.isSupportVectorRegression())
                 return dec_values[0];
@@ -1624,12 +1670,6 @@ public class Linear {
 
     /**
      * @throws IllegalArgumentException if the feature nodes of prob are not sorted in ascending order
-     */
-    /**
-     * Liblinear模型训练部分 
-     * @param prob 输入的问题
-     * @param param 输入的参数
-     * @return  返回训练好的模型 
      */
     public static Model train(Problem prob, Parameter param) {
 
